@@ -2,7 +2,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import requests
-from sms import send_sms
+from sms import SMSApp,TwilioSMSHandler
+import threading
 
 def read_google_sheet(json_key_path, sheet_id):
     """
@@ -39,7 +40,7 @@ def read_google_sheet(json_key_path, sheet_id):
 
     return df
 
-def interact_with_openai(task, api_endpoint, api_key):
+def interact_with_openai(task, api_endpoint, api_key,sms_app):
     """
     Interacts with the Azure OpenAI API for a given task.
 
@@ -85,6 +86,7 @@ def interact_with_openai(task, api_endpoint, api_key):
 
     while user_input != "exit" and "bye" not in completion.lower():
         if counter != 1:
+
             user_input = input("write here: ... ")
             payload["messages"].append({"role": "user", "content": user_input})
 
@@ -97,7 +99,7 @@ def interact_with_openai(task, api_endpoint, api_key):
                 response_data = response.json()
                 completion = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 # print("Response:", completion)
-                send_sms(completion,"+16473911477")
+                sms_app.sms_handler.send_sms(completion,"+16473911477")
             else:
                 print(f"Error {response.status_code}: {response.text}")
 
@@ -106,7 +108,7 @@ def interact_with_openai(task, api_endpoint, api_key):
 
         counter += 1
 
-def main():
+def main(sms_app):
     """
     Main function to read tasks from Google Sheet and interact with OpenAI API.
     """
@@ -122,7 +124,25 @@ def main():
     # Process each task
     for _, item in df.iterrows():
         task = item["Task"]
-        interact_with_openai(task, api_endpoint, api_key)
+        interact_with_openai(task, api_endpoint, api_key,sms_app)
 
 if __name__ == "__main__":
-    main()
+    # Twilio configuration
+    ACCOUNT_SID = 'AC5607ca505b69a91cfafe52310fe3bd05'  # Replace with your Account SID
+    AUTH_TOKEN = '743674f57e44c27f71c77e8d0ab7a722'  # Replace with your Auth Token
+    TWILIO_PHONE_NUMBER = '+12183665130'  # Replace with your Twilio phone number
+
+    # Initialize the Twilio SMS handler
+    sms_handler = TwilioSMSHandler(ACCOUNT_SID, AUTH_TOKEN, TWILIO_PHONE_NUMBER)
+
+    # Create and run the SMS app
+    sms_app = SMSApp(sms_handler)
+    flask_thread = threading.Thread(target=sms_app.run, kwargs={'debug': True})
+    flask_thread.daemon = True
+    flask_thread.start()
+    print(2)
+
+
+
+
+    main(sms_app)
