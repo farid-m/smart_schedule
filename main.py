@@ -2,6 +2,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import requests
+from sms import send_sms
 
 def read_google_sheet(json_key_path, sheet_id):
     """
@@ -95,7 +96,8 @@ def interact_with_openai(task, api_endpoint, api_key):
             if response.status_code == 200:
                 response_data = response.json()
                 completion = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                print("Response:", completion)
+                # print("Response:", completion)
+                send_sms(completion,"+16473911477")
             else:
                 print(f"Error {response.status_code}: {response.text}")
 
@@ -109,7 +111,7 @@ def main():
     Main function to read tasks from Google Sheet and interact with OpenAI API.
     """
     # Configuration
-    json_key_path = "E:\\SmartSchedule\\key_gcp\\key.json"
+    json_key_path = "creds/smartscheduler-444021-2581ce4ff8b6.json"
     sheet_id = "1ymM9a-_iMuxuKyn0XioaA3aEaTkbkBihDGi9eeOicSs"
     api_endpoint = "https://progress-tracking-dev-east-us.openai.azure.com/openai/deployments/gpt-4o-prig-dev/chat/completions?api-version=2024-08-01-preview"
     api_key = "3aac79231b2d402ea89f0d94d5cefec4"

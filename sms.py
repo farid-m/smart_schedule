@@ -4,11 +4,19 @@ from twilio.rest import Client
 
 # Twilio configuration
 ACCOUNT_SID = 'AC5607ca505b69a91cfafe52310fe3bd05'  # Replace with your Account SID
-AUTH_TOKEN = 'c35f5c818eea5abb70a627d564a259f6'    # Replace with your Auth Token
-TWILIO_PHONE_NUMBER = '+1234567890'  # Replace with your Twilio phone number
+AUTH_TOKEN = '743674f57e44c27f71c77e8d0ab7a722'    # Replace with your Auth Token
+TWILIO_PHONE_NUMBER = '+12183665130'  # Replace with your Twilio phone number
 
 # Initialize Flask app
 app = Flask(__name__)
+
+def send_sms(body,num_txt):
+    twilio_client = Client(ACCOUNT_SID, AUTH_TOKEN)
+    twilio_client.messages.create(
+        body=body,
+        from_=TWILIO_PHONE_NUMBER,
+        to=num_txt
+    )
 
 # Route to handle incoming SMS
 @app.route('/sms', methods=['POST'])
@@ -41,3 +49,4 @@ def process_message(message):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
