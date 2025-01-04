@@ -1,9 +1,12 @@
+import time
+
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import requests
-from sms import SMSApp,TwilioSMSHandler
+from sms import SMSApp, TwilioSMSHandler
 import threading
+
 
 def read_google_sheet(json_key_path, sheet_id):
     """
@@ -40,7 +43,8 @@ def read_google_sheet(json_key_path, sheet_id):
 
     return df
 
-def interact_with_openai(task, api_endpoint, api_key,sms_app):
+
+def interact_with_openai(task, api_endpoint, api_key, sms_app):
     """
     Interacts with the Azure OpenAI API for a given task.
 
@@ -53,31 +57,31 @@ def interact_with_openai(task, api_endpoint, api_key,sms_app):
         None
     """
     # Define the headers for the API call
-    headers = {
-        "Content-Type": "application/json",
-        "api-key": api_key
-    }
+    headers = {"Content-Type": "application/json", "api-key": api_key}
 
     # Define the payload for the chat completion
     payload = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": f"You are a construction scheduler agent. Here is the task you "
-                           f"need to focus on now >> {task}. Assume you are contacting the "
-                           f"person assigned to this task in the field. You need to ask a "
-                           f"sequence of max 4 to 5 questions one by one until you get "
-                           f"the update "
-                           f"related to this task. Try to figure out first if the task is "
-                           f"ongoing, completed, or not started. Then get the updates and "
-                           f"also get an updated end date. Once you are done getting the "
-                           f"updates "
-                           f"create a summary of the conversation plus the image (if "
-                           f"uploaded) "
-                           f"and publish the report. Make sure you say BYE at the end of "
-                           f"the chat this is very important."}
+            {
+                "role": "user",
+                "content": f"You are a construction scheduler agent. Here is the task you "
+                f"need to focus on now >> {task}. Assume you are contacting the "
+                f"person assigned to this task in the field. You need to ask a "
+                f"sequence of max 4 to 5 questions one by one until you get "
+                f"the update "
+                f"related to this task. Try to figure out first if the task is "
+                f"ongoing, completed, or not started. Then get the updates and "
+                f"also get an updated end date. Once you are done getting the "
+                f"updates "
+                f"create a summary of the conversation plus the image (if "
+                f"uploaded) "
+                f"and publish the report. Make sure you say BYE at the end of "
+                f"the chat this is very important.",
+            },
         ],
         "max_tokens": 100,
-        "temperature": 0.7
+        "temperature": 0.7,
     }
 
     user_input = ""
@@ -86,8 +90,9 @@ def interact_with_openai(task, api_endpoint, api_key,sms_app):
 
     while user_input != "exit" and "bye" not in completion.lower():
         if counter != 1:
-
-            user_input = input("write here: ... ")
+            while len(sms_app.inputs) < counter - 1:
+                time.sleep(1)
+            user_input = sms_app.inputs[-1]
             payload["messages"].append({"role": "user", "content": user_input})
 
         try:
@@ -97,9 +102,13 @@ def interact_with_openai(task, api_endpoint, api_key,sms_app):
             # Check if the response is successful
             if response.status_code == 200:
                 response_data = response.json()
-                completion = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                completion = (
+                    response_data.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                )
                 # print("Response:", completion)
-                sms_app.sms_handler.send_sms(completion,"+16473911477")
+                sms_app.sms_handler.send_sms(completion, "+16473911477")
             else:
                 print(f"Error {response.status_code}: {response.text}")
 
@@ -107,6 +116,7 @@ def interact_with_openai(task, api_endpoint, api_key,sms_app):
             print("Request failed:", e)
 
         counter += 1
+
 
 def main(sms_app):
     """
@@ -124,25 +134,21 @@ def main(sms_app):
     # Process each task
     for _, item in df.iterrows():
         task = item["Task"]
-        interact_with_openai(task, api_endpoint, api_key,sms_app)
+        interact_with_openai(task, api_endpoint, api_key, sms_app)
+
 
 if __name__ == "__main__":
     # Twilio configuration
-    ACCOUNT_SID = 'AC5607ca505b69a91cfafe52310fe3bd05'  # Replace with your Account SID
-    AUTH_TOKEN = '743674f57e44c27f71c77e8d0ab7a722'  # Replace with your Auth Token
-    TWILIO_PHONE_NUMBER = '+12183665130'  # Replace with your Twilio phone number
+    ACCOUNT_SID = "AC5607ca505b69a91cfafe52310fe3bd05"  # Replace with your Account SID
+    AUTH_TOKEN = "743674f57e44c27f71c77e8d0ab7a722"  # Replace with your Auth Token
+    TWILIO_PHONE_NUMBER = "+12183665130"  # Replace with your Twilio phone number
 
     # Initialize the Twilio SMS handler
     sms_handler = TwilioSMSHandler(ACCOUNT_SID, AUTH_TOKEN, TWILIO_PHONE_NUMBER)
 
     # Create and run the SMS app
     sms_app = SMSApp(sms_handler)
-    flask_thread = threading.Thread(target=sms_app.run, kwargs={'debug': True})
+    flask_thread = threading.Thread(target=sms_app.run, kwargs={"debug": True})
     flask_thread.daemon = True
     flask_thread.start()
-    print(2)
-
-
-
-
     main(sms_app)
