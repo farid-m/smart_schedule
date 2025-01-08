@@ -1,6 +1,7 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
+from flask_cors import CORS
 
 
 class TwilioSMSHandler:
@@ -35,9 +36,11 @@ class SMSApp:
         Initializes the Flask app and associates the SMS handler.
         """
         self.app = Flask(__name__)
+        CORS(self.app)
         self.sms_handler = sms_handler
         self.setup_routes()
         self.inputs = []
+        # self.sms_handler.send_sms("hello test", "+16473911477")
 
     def setup_routes(self):
         """
@@ -48,6 +51,7 @@ class SMSApp:
         def sms_reply():
             # Get the message from the user
             self.inputs.append(request.form.get("Body", "").strip())
+            print(self.inputs[-1])
             # from_number = request.form.get('From', '')
 
             # Process the message and prepare a response
@@ -59,6 +63,18 @@ class SMSApp:
             # Return an empty response to Twilio (acknowledgment)
             return str(MessagingResponse())
 
+        @self.app.route('/send_sms', methods=['POST'])
+        def send_sms():
+            data = request.json
+            body = data.get('body','')
+            to_number = data.get('to_number','')
+            print(body)
+            print(to_number)
+
+
+            sms_handler.twilio_client.messages.create(body=body, from_=sms_handler.phone_number, to=to_number)
+            return {"status": "success"}, 200
+
     def run(self, debug=True):
         """
         Runs the Flask app.
@@ -69,7 +85,7 @@ class SMSApp:
 if __name__ == "__main__":
     # Twilio configuration
     ACCOUNT_SID = "AC5607ca505b69a91cfafe52310fe3bd05"  # Replace with your Account SID
-    AUTH_TOKEN = "743674f57e44c27f71c77e8d0ab7a722"  # Replace with your Auth Token
+    AUTH_TOKEN = "4615d93b8630ef7f69127ffc57e72b94"  # Replace with your Auth Token
     TWILIO_PHONE_NUMBER = "+12183665130"  # Replace with your Twilio phone number
 
     # Initialize the Twilio SMS handler

@@ -10,6 +10,7 @@ Office.onReady((info) => {
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
     document.getElementById("run").onclick = run;
+    document.getElementById("send-sms").onclick = sendSms; // New button handler
   }
 });
 
@@ -51,3 +52,38 @@ export async function run() {
     console.error(error);
   }
 }
+
+async function sendSms() {
+  try {
+    const smsPayload = {
+      body: "This is a test SMS from the MS Project plugin!",
+      to_number: "+16473911477" // Replace with a valid recipient number or make it dynamic
+    };
+
+    const response = await fetch("http://localhost:5000/send_sms", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(smsPayload)
+    });
+
+    // Handle response based on content type
+    const result = response.headers.get("Content-Type")?.includes("application/json")
+      ? await response.json()
+      : await response.text();
+
+    if (response.ok) {
+      console.log("SMS sent successfully:", result);
+      alert("SMS sent successfully!");
+    } else {
+      console.error("Error sending SMS:", result);
+      alert("Failed to send SMS. Check the console for details.");
+    }
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    alert("An error occurred. Check the console for details.");
+  }
+}
+
+
