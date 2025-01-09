@@ -60,18 +60,18 @@ async function sendSms() {
         const taskGuid = result.value;
 
         // Get task properties, including the Notes field (phone number)
-        Office.context.document.getTaskFieldAsync(taskGuid, Office.ProjectTaskFields.Notes, async (taskResult) => {
+        Office.context.document.getTaskFieldAsync(taskGuid, Office.ProjectTaskFields["Number1"], async (taskResult) => {
           if (taskResult.status === Office.AsyncResultStatus.Succeeded) {
             const notesValue = taskResult.value.fieldValue; // Extract phone number from Notes field
 
             const smsPayload = {
-              body: "This is a test SMS from the MS Project plugin!",
+              task: "Building Foundation",
               to_number: notesValue
             };
 
             try {
               // Send the SMS
-              const response = await fetch("http://localhost:5000/send_sms", {
+              const response = await fetch("http://localhost:5000/interact", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json"
@@ -80,15 +80,34 @@ async function sendSms() {
               });
 
               // Handle the response
-              const result = response.headers.get("Content-Type")?.includes("application/json")
-                ? await response.json()
-                : await response.text();
-
               if (response.ok) {
+                const result = await response.json(); // Parse JSON response
                 console.log("SMS sent successfully:", result);
-                alert("SMS sent successfully!");
+
+                if (result.status === "success" && result.summary) {
+                  const completionText = result.summary;
+
+                  // Update the Notes field with the completion text
+                  Office.context.document.setTaskFieldAsync(
+                    taskGuid,
+                    Office.ProjectTaskFields.Notes,
+                    completionText, // Use the completion text as the Notes content
+                    (updateResult) => {
+                      if (updateResult.status === Office.AsyncResultStatus.Succeeded) {
+                        console.log("Notes field updated successfully with completion text.");
+                        alert("Notes field updated successfully!");
+                      } else {
+                        console.error("Error updating Notes field:", updateResult.error);
+                      }
+                    }
+                  );
+                } else {
+                  console.error("Unexpected response format or missing summary:", result);
+                  alert("Failed to update Notes field due to unexpected response.");
+                }
               } else {
-                console.error("Error sending SMS:", result);
+                const errorDetails = await response.text();
+                console.error("Error sending SMS:", errorDetails);
                 alert("Failed to send SMS. Check the console for details.");
               }
             } catch (fetchError) {
@@ -108,3 +127,4 @@ async function sendSms() {
     alert("An error occurred. Check the console for details.");
   }
 }
+

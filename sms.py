@@ -2,6 +2,8 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
 from flask_cors import CORS
+import time
+import requests
 
 
 class TwilioSMSHandler:
@@ -41,11 +43,86 @@ class SMSApp:
         self.setup_routes()
         self.inputs = []
         # self.sms_handler.send_sms("hello test", "+16473911477")
+        self.openai_api_endpoint = "https://progress-tracking-dev-east-us.openai.azure.com/openai/deployments/gpt-4o-prig-dev/chat/completions?api-version=2024-08-01-preview"
+        self.openai_api_key = "3aac79231b2d402ea89f0d94d5cefec4"
 
     def setup_routes(self):
         """
         Sets up Flask routes.
         """
+
+        @self.app.route("/interact", methods=["POST"])
+        def interact_with_openai():
+            data = request.json
+            task = data.get("task", "")
+            to_number = data.get("to_number", "")
+            # Define the headers for the API call
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": self.openai_api_key,
+            }
+
+            # Define the payload for the chat completion
+            payload = {
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {
+                        "role": "user",
+                        "content": f"You are a construction scheduler agent. Here is the task you "
+                        f"need to focus on now >> {task}. Assume you are contacting the "
+                        f"person assigned to this task in the field. You need to ask a "
+                        f"sequence of max 4 to 5 questions one by one until you get "
+                        f"the update "
+                        f"related to this task. Try to figure out first if the task is "
+                        f"ongoing, completed, or not started. Then get the updates and "
+                        f"also get an updated end date. Once you are done getting the "
+                        f"updates "
+                        f"create a summary of the conversation plus the image (if "
+                        f"uploaded) "
+                        f"and publish the report. Make sure you say BYE at the end of "
+                        f"the chat this is very important.",
+                    },
+                ],
+                "max_tokens": 100,
+                "temperature": 0,
+            }
+
+            user_input = ""
+            counter = 1
+            completion = ""
+
+            while user_input != "exit" and "bye" not in completion.lower():
+                if counter != 1:
+                    while len(sms_app.inputs) < counter - 1:
+                        time.sleep(1)
+                    user_input = self.inputs[-1]
+                    payload["messages"].append({"role": "user", "content": user_input})
+
+                try:
+                    # Make the POST request
+                    response = requests.post(
+                        self.openai_api_endpoint, headers=headers, json=payload
+                    )
+
+                    # Check if the response is successful
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        completion = (
+                            response_data.get("choices", [{}])[0]
+                            .get("message", {})
+                            .get("content", "")
+                        )
+                        # print("Response:", completion)
+                        sms_app.sms_handler.send_sms(completion, to_number)
+                    else:
+                        print(f"Error {response.status_code}: {response.text}")
+
+                except requests.exceptions.RequestException as e:
+                    print("Request failed:", e)
+
+                counter += 1
+            self.inputs = []
+            return {"status": "success", "summary": completion}
 
         @self.app.route("/sms", methods=["POST"])
         def sms_reply():
@@ -63,16 +140,16 @@ class SMSApp:
             # Return an empty response to Twilio (acknowledgment)
             return str(MessagingResponse())
 
-        @self.app.route('/send_sms', methods=['POST'])
+        @self.app.route("/send_sms", methods=["POST"])
         def send_sms():
             data = request.json
-            body = data.get('body','')
-            to_number = data.get('to_number','')
-            print(body)
-            print(to_number)
-
-
-            sms_handler.twilio_client.messages.create(body=body, from_=sms_handler.phone_number, to=to_number)
+            body = data.get("body", "")
+            to_number = data.get("to_number", "")
+            print("Message:", body)
+            print("Number:", to_number)
+            sms_handler.twilio_client.messages.create(
+                body=body, from_=sms_handler.phone_number, to=to_number
+            )
             return {"status": "success"}, 200
 
     def run(self, debug=True):
@@ -84,8 +161,8 @@ class SMSApp:
 
 if __name__ == "__main__":
     # Twilio configuration
-    ACCOUNT_SID = "AC5607ca505b69a91cfafe52310fe3bd05"  # Replace with your Account SID
-    AUTH_TOKEN = "4615d93b8630ef7f69127ffc57e72b94"  # Replace with your Auth Token
+    ACCOUNT_SID = ""  # Replace with your Account SID
+    AUTH_TOKEN = ""  # Replace with your Auth Token
     TWILIO_PHONE_NUMBER = "+12183665130"  # Replace with your Twilio phone number
 
     # Initialize the Twilio SMS handler
