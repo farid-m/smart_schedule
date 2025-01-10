@@ -9,50 +9,77 @@ Office.onReady((info) => {
   if (info.host === Office.HostType.Project) {
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
-    document.getElementById("run").onclick = run;
+    document.getElementById("retrieve").onclick = retrieve;
     document.getElementById("send-sms").onclick = sendSms; // New button handler
   }
 });
 
-export async function run() {
-  try {
-    // Get the GUID of the selected task
-    Office.context.document.getSelectedTaskAsync((result) => {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        const taskGuid = result.value;
+async function retrieve() {
+  Office.context.document.getSelectedTaskAsync((result) => {
+    if (result.status === Office.AsyncResultStatus.Succeeded) {
+      const taskGuid = result.value;
 
-        // Get task properties, including the task name
-        Office.context.document.getTaskAsync(taskGuid, (taskResult) => {
-          if (taskResult.status === Office.AsyncResultStatus.Succeeded) {
-            const taskName = taskResult.value.taskName; // Retrieve the current task name
-            const notesFieldContent = `Task name is: ${taskName}`; // Format the string for Notes field
+      try {
+        const smsPayload = {
+          taskguid: taskGuid // Corrected variable name
+        };
 
-            // Update the Notes field with the task name
-            Office.context.document.setTaskFieldAsync(
-              taskGuid,
-              Office.ProjectTaskFields.Notes,
-              notesFieldContent,
-              (updateResult) => {
-                if (updateResult.status === Office.AsyncResultStatus.Succeeded) {
-                  console.log("Notes field updated successfully.");
-                } else {
-                  console.error(updateResult.error);
-                }
+        // Function to handle fetch logic
+        (async () => {
+          try {
+            const response = await fetch("http://localhost:5000/retrieve", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(smsPayload)
+            });
+
+            if (response.ok) {
+              const result = await response.json(); // Parse JSON response
+              console.log("Request successful:", result);
+
+              if (result.status === "success" && result.summary) {
+                const completionText = result.summary;
+
+                // Update the Notes field with the completion text
+                Office.context.document.setTaskFieldAsync(
+                  taskGuid,
+                  Office.ProjectTaskFields.Notes,
+                  completionText, // Use the completion text as the Notes content
+                  (updateResult) => {
+                    if (updateResult.status === Office.AsyncResultStatus.Succeeded) {
+                      console.log("Notes field updated successfully with completion text.");
+                      alert("Notes field updated successfully!");
+                    } else {
+                      console.error("Error updating Notes field:", updateResult.error);
+                    }
+                  }
+                );
+              } else {
+                console.error("Unexpected response format or missing summary:", result);
+                alert("Failed to update Notes field due to unexpected response.");
               }
-            );
-          } else {
-            console.error(taskResult.error);
+            } else {
+              const errorDetails = await response.text();
+              console.error("Error in API response:", errorDetails);
+              alert("API request failed. Check the console for details.");
+            }
+          } catch (fetchError) {
+            console.error("Error during API request:", fetchError);
+            alert("Failed to send request due to network issues.");
           }
-        });
-      } else {
-        console.error(result.error);
+        })();
+      } catch (error) {
+        console.error("Unexpected error:", error);
+        alert("An error occurred while preparing the API request.");
       }
-    });
-  } catch (error) {
-    console.error(error);
-  }
+    } else {
+      console.error("Error retrieving selected task:", result.error);
+      alert("Failed to retrieve the selected task. Check the console for details.");
+    }
+  });
 }
-
 async function sendSms() {
   try {
     Office.context.document.getSelectedTaskAsync((result) => {
@@ -71,56 +98,23 @@ async function sendSms() {
 
                 const smsPayload = {
                   task: taskName, // Use the dynamically retrieved Task Name
-                  to_number: notesValue
+                  to_number: notesValue,
+                  taskguid: taskGuid
                 };
 
-                (async () => {
-                  try {
-                    // Send the SMS
-                    const response = await fetch("http://localhost:5000/interact", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json"
-                      },
-                      body: JSON.stringify(smsPayload)
-                    });
+                // Send the SMS (fire-and-forget approach)
+                fetch("http://localhost:5000/interact", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify(smsPayload)
+                }).catch((error) => {
+                  console.error("Error during SMS sending process:", error);
+                  alert("Failed to send SMS due to network issues.");
+                });
 
-                    // Handle the response
-                    if (response.ok) {
-                      const result = await response.json(); // Parse JSON response
-                      console.log("SMS sent successfully:", result);
-
-                      if (result.status === "success" && result.summary) {
-                        const completionText = result.summary;
-
-                        // Update the Notes field with the completion text
-                        Office.context.document.setTaskFieldAsync(
-                          taskGuid,
-                          Office.ProjectTaskFields.Notes,
-                          completionText, // Use the completion text as the Notes content
-                          (updateResult) => {
-                            if (updateResult.status === Office.AsyncResultStatus.Succeeded) {
-                              console.log("Notes field updated successfully with completion text.");
-                              alert("Notes field updated successfully!");
-                            } else {
-                              console.error("Error updating Notes field:", updateResult.error);
-                            }
-                          }
-                        );
-                      } else {
-                        console.error("Unexpected response format or missing summary:", result);
-                        alert("Failed to update Notes field due to unexpected response.");
-                      }
-                    } else {
-                      const errorDetails = await response.text();
-                      console.error("Error sending SMS:", errorDetails);
-                      alert("Failed to send SMS. Check the console for details.");
-                    }
-                  } catch (fetchError) {
-                    console.error("Error during SMS sending process:", fetchError);
-                    alert("Failed to send SMS due to network issues.");
-                  }
-                })();
+                console.log("SMS request sent. No need to wait for the response.");
               } else {
                 console.error("Error retrieving Task Name field:", taskNameResult.error);
                 alert("Failed to retrieve the Task Name field. Check the console for details.");
@@ -140,3 +134,4 @@ async function sendSms() {
     alert("An error occurred. Check the console for details.");
   }
 }
+
