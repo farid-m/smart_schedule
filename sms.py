@@ -5,6 +5,7 @@ from flask_cors import CORS
 import time
 import requests
 import datetime
+import os
 
 
 class TwilioSMSHandler:
@@ -37,8 +38,8 @@ class SMSApp:
         self.setup_routes()
         self.inputs = []
         # self.sms_handler.send_sms("hello test", "+16473911477")
-        self.openai_api_endpoint = "https://progress-tracking-dev-east-us.openai.azure.com/openai/deployments/gpt-4o-prig-dev/chat/completions?api-version=2024-08-01-preview"
-        self.openai_api_key = "3aac79231b2d402ea89f0d94d5cefec4"
+        self.openai_api_endpoint = os.getenv("OPENAI_API_ENDPOINT")
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
     def setup_routes(self):
         """
@@ -170,9 +171,9 @@ class SMSApp:
 
 if __name__ == "__main__":
     # Twilio configuration
-    ACCOUNT_SID = ""  # Replace with your Account SID
-    AUTH_TOKEN = ""  # Replace with your Auth Token
-    TWILIO_PHONE_NUMBER = "+12183665130"  # Replace with your Twilio phone number
+    ACCOUNT_SID = os.getenv("TWIL_ACCOUNT_SID")  # Replace with your Account SID
+    AUTH_TOKEN = os.getenv("TWIL_AUTH_TOKEN")  # Replace with your Auth Token
+    TWILIO_PHONE_NUMBER = os.getenv("TWIL_PHONE_NUMBER") # Replace with your Twilio phone number
 
     # Initialize the Twilio SMS handler
     sms_handler = TwilioSMSHandler(ACCOUNT_SID, AUTH_TOKEN, TWILIO_PHONE_NUMBER)
