@@ -23,7 +23,7 @@ COPY ./sms.py /app/sms.py
 COPY ./requirements.txt /app/requirements.txt
 
 # Expose the port Flask runs on
-EXPOSE 5000
+EXPOSE 8080
 
 # Command to run the app
 CMD ["python", "sms.py"]

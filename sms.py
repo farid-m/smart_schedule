@@ -180,4 +180,5 @@ if __name__ == "__main__":
 
     # Create and run the SMS app
     sms_app = SMSApp(sms_handler)
-    sms_app.run(debug=True)
+    port = int(os.environ.get('PORT', 8080))  # Default to 8080
+    sms_app.run(host='0.0.0.0', port=port, debug=True)
