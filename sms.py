@@ -3,7 +3,6 @@ from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
 from quart_cors import cors
 import time
-import requests
 import datetime
 import os
 import asyncio
@@ -49,6 +48,7 @@ class SMSApp:
         self.openai_api_endpoint = os.getenv("OPENAI_API_ENDPOINT")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.user_sessions = {}
+        self.counter = {}
 
     def setup_routes(self):
         """
@@ -75,6 +75,7 @@ class SMSApp:
                 "api-key": self.openai_api_key,
             }
             user_id = to_number
+            self.counter[user_id] = 1
 
             # Define the payload for the chat completion
             if user_id not in self.user_sessions:
@@ -101,24 +102,28 @@ class SMSApp:
                     "max_tokens": 100,
                     "temperature": 0,
                 }
-            user_session = self.user_sessions[user_id]
 
             user_input = ""
-            counter = 1
             completion = ""
 
             async with httpx.AsyncClient() as client:
 
                 while user_input != "exit" and "bye" not in completion.lower():
-                    if counter != 1:
-                        while len(user_session["messages"]) < counter:
+
+                    if self.counter[user_id] != 1:
+                        while (
+                            len(self.user_sessions[user_id]["messages"])
+                            < self.counter[user_id]
+                        ):
                             await asyncio.sleep(1)
-                        user_input = user_session["messages"][-1]["content"]
+                        user_input = self.user_sessions[user_id]["messages"][-1][
+                            "content"
+                        ]
 
                     try:
                         # Make the POST request
                         payload = {
-                            "messages": user_session["messages"],
+                            "messages": self.user_sessions[user_id]["messages"],
                             "max_tokens": 100,
                             "temperature": 0,
                         }
@@ -145,7 +150,7 @@ class SMSApp:
 
                         break
 
-                    counter += 1
+                    self.counter[user_id] += 1
             self.inputs = []
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with open("reports/" + str(taskGUID) + ".txt", "w") as file:
