@@ -27,7 +27,7 @@ async function retrieve() {
         // Function to handle fetch logic
         (async () => {
           try {
-            const response = await fetch("http://localhost:5000/retrieve", {
+            const response = await fetch("https://sms-app-1025694498972.us-central1.run.app/retrieve", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json"
@@ -103,7 +103,7 @@ async function sendSms() {
                 };
 
                 // Send the SMS (fire-and-forget approach)
-                fetch("http://localhost:5000/interact", {
+                fetch("https://sms-app-1025694498972.us-central1.run.app/interact", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json"
