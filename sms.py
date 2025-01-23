@@ -74,7 +74,7 @@ class SMSApp:
                 "Content-Type": "application/json",
                 "api-key": self.openai_api_key,
             }
-            user_id = to_number
+            user_id = str(to_number)[-10::]
             self.counter[user_id] = 1
 
             # Define the payload for the chat completion
@@ -109,11 +109,13 @@ class SMSApp:
             async with httpx.AsyncClient() as client:
 
                 while user_input != "exit" and "bye" not in completion.lower():
-
                     if self.counter[user_id] != 1:
+                        print(len(self.user_sessions[user_id]["messages"]))
+                        print(self.counter[user_id])
+
                         while (
                             len(self.user_sessions[user_id]["messages"])
-                            < self.counter[user_id]
+                            < self.counter[user_id] + 1
                         ):
                             await asyncio.sleep(1)
                         user_input = self.user_sessions[user_id]["messages"][-1][
@@ -121,6 +123,8 @@ class SMSApp:
                         ]
 
                     try:
+                        print(len(self.user_sessions[user_id]["messages"]))
+                        print(self.counter[user_id])
                         # Make the POST request
                         payload = {
                             "messages": self.user_sessions[user_id]["messages"],
@@ -163,12 +167,10 @@ class SMSApp:
         @self.app.route("/sms", methods=["POST"])
         async def sms_reply():
             data = await request.form
-            user_id = data.get("From", "").strip()
+            user_id = data.get("From", "").strip()[-10::]
             message = data.get("Body", "").strip()
-            print(message, "received")
             if user_id not in self.user_sessions:
                 self.user_sessions[user_id] = {"messages": []}
-                print("in loop")
             self.user_sessions[user_id]["messages"].append(
                 {"role": "user", "content": message}
             )
